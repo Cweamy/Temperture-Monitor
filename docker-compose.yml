@@ -1,0 +1,63 @@
+services:
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"          # MQTT port
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: always
+
+  db:
+    image: mysql:8.0
+    container_name: esp32-temp-mysql
+    ports:
+      - "3306:3306"          # MySQL port
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: esp32_temp_db
+      TZ: Asia/Bangkok
+    volumes:
+      - ./database/init:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
+    restart: always
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: esp32-temp-phpmyadmin
+    ports:
+      - "8080:80"            # phpMyAdmin = 8080
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+    depends_on:
+      - db
+    restart: always
+
+  backend:
+    build: ./backend
+    container_name: esp32-backend
+    ports:
+      - "7000:7000"          # API backend = 7000
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - db
+      - mosquitto
+    restart: always
+
+  frontend:
+    build: ./frontend-vue
+    container_name: esp32-frontend
+    ports:
+      - "3000:80"            # Frontend = 3000
+    env_file:
+      - ./frontend-vue/.env
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  db_data:
